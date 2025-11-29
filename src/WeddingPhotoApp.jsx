@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Upload, Camera, X, Image as ImageIcon } from 'lucide-react';
 
@@ -21,20 +20,18 @@ const WeddingPhotoApp = () => {
   // ============================================
 
   // ============================================
-  // ÇİFT FOTOĞRAFI - İki seçenek:
+  // ÇİFT FOTOĞRAFI - Base URL ile uyumlu
   // ============================================
   
   // SEÇENEK 1: Public klasöründen (ÖNERİLEN)
-  // Adımlar:
-  // 1. Çift fotoğrafınızı "couple.jpg" olarak kaydedin
-  // 2. /public klasörüne koyun
-  // 3. Aşağıdaki satırı kullanın:
-  const COUPLE_PHOTO_URL = '/MerveSelim.jpg';
+  // Vite'ın base URL'ini otomatik kullanır
+  const COUPLE_PHOTO_URL = `${import.meta.env.BASE_URL}couple.jpg`;
   
-  // SEÇENEK 2: Harici URL (Imgur, Unsplash vs.)
-  // const COUPLE_PHOTO_URL = 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&q=80';
+  // SEÇENEK 2: Harici URL (Base URL'den bağımsız)
+  // const COUPLE_PHOTO_URL = 'https://i.imgur.com/XXXXX.jpg';
   
-  // Not: Google Drive linkleri genelde çalışmaz, public klasör en iyisi!
+  // Not: import.meta.env.BASE_URL otomatik olarak vite.config.js'deki 
+  // base ayarını kullanır (örn: '/Merve-Selim-Wedding/')
   // ============================================
 
   // Demo mode kontrolü
@@ -63,7 +60,7 @@ const WeddingPhotoApp = () => {
     // Demo mode - Script URL ayarlanmamışsa
     if (isDemoMode) {
       setCoupleNames('Merve & Selim');
-      setWeddingDate('17 Temmuz 2026');
+      setWeddingDate('17 Temmuz 2025');
       return;
     }
 
@@ -78,7 +75,7 @@ const WeddingPhotoApp = () => {
       console.error('Config yükleme hatası:', error);
       // Fallback to demo
       setCoupleNames('Merve & Selim');
-      setWeddingDate('17 Temmuz 2026');
+      setWeddingDate('17 Temmuz 2025');
     }
   };
 

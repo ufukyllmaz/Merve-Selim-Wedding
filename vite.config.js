@@ -3,7 +3,13 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/Merve-Selim-Wedding/',  // GitHub Pages için açın
+  
+  // GitHub Pages için base URL
+  // ÖNEMLİ: Repo adınızı buraya yazın!
+  base: '/Merve-Selim-Wedding/',
+  
+  // Not: Netlify/Vercel kullanıyorsanız base: '/' yapın
+  
   server: {
     port: 5173,
     host: true
