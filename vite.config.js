@@ -7,7 +7,7 @@ export default defineConfig({
   // GitHub Pages için base URL
   // Repo adınızı buraya yazın (örn: /dugun-fotograf-sitesi/)
   // Netlify/Vercel için '/' kullanın
-  base: '/Merve-Selim-Wedding/',  // GitHub Pages için açın
+  // base: '/Merve-Selim-Wedding/',  // GitHub Pages için açın
   
   server: {
     port: 5173,
