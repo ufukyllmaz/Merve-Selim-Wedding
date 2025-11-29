@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Google Drive ile düğün fotoğraf paylaşım sitesi",
   "type": "module",
+  "homepage": "https://ufukyllmaz.github.io/Merve-Selim-Wedding/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
