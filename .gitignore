@@ -1,8 +1,5 @@
-# Dependencies
-node_modules/*
-
-# Build
-dist/
+# Node modules
+node_modules/
 build/
 
 # Environment
