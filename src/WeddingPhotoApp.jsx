@@ -25,7 +25,7 @@ const WeddingPhotoApp = () => {
   
   // SEÇENEK 1: Public klasöründen (ÖNERİLEN)
   // Vite'ın base URL'ini otomatik kullanır
-  const COUPLE_PHOTO_URL = `${import.meta.env.BASE_URL}couple.jpg`;
+  const COUPLE_PHOTO_URL = `/Merve-Selim-Wedding/couple.jpg`;
   
   // SEÇENEK 2: Harici URL (Base URL'den bağımsız)
   // const COUPLE_PHOTO_URL = 'https://i.imgur.com/XXXXX.jpg';
