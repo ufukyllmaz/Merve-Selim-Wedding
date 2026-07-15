@@ -60,7 +60,7 @@ const WeddingPhotoApp = () => {
     // Demo mode - Script URL ayarlanmamışsa
     if (isDemoMode) {
       setCoupleNames('Merve & Selim');
-      setWeddingDate('17 Temmuz 2025');
+      setWeddingDate('17 Temmuz 2026');
       return;
     }
 
@@ -75,7 +75,7 @@ const WeddingPhotoApp = () => {
       console.error('Config yükleme hatası:', error);
       // Fallback to demo
       setCoupleNames('Merve & Selim');
-      setWeddingDate('17 Temmuz 2025');
+      setWeddingDate('17 Temmuz 2026');
     }
   };
 
@@ -121,18 +121,17 @@ const WeddingPhotoApp = () => {
     }
 
     try {
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'getPhotos' })
-      });
-      
+      // GET kullanıyoruz: Apps Script web app'lerinde statik siteden yapılan
+      // GET istekleri POST'a göre daha güvenilir çalışır (yönlendirme/CORS sorunları daha az).
+      const response = await fetch(`${SCRIPT_URL}?action=getPhotos`);
       const data = await response.json();
-      
+
       if (data.success) {
-        setPhotos(data.photos);
-        setDriveFolderUrl(data.folderUrl);
+        setPhotos(Array.isArray(data.photos) ? data.photos : []);
+        setDriveFolderUrl(data.folderUrl || '');
+        console.log(`Galeri: ${data.photos ? data.photos.length : 0} fotoğraf yüklendi`);
       } else {
-        console.error('Fotoğraf yükleme hatası:', data.error);
+        console.error('Fotoğraf listeleme hatası (backend):', data.error);
       }
     } catch (error) {
       console.error('Fotoğraflar yüklenirken hata:', error);

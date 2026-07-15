@@ -143,14 +143,84 @@ function doPost(e) {
   }
 }
 
-// GET isteği - Basit kontrol
+// Fotoğrafları listeleyen ortak yardımcı fonksiyon
+function listPhotos() {
+  const folder = getOrCreateFolder();
+  const files = folder.getFiles();
+  const photos = [];
+
+  while (files.hasNext()) {
+    const file = files.next();
+    const mimeType = file.getMimeType();
+
+    if (mimeType && mimeType.indexOf('image/') === 0) {
+      const fid = file.getId();
+
+      // Fotoğrafı herkese açık yap (eski yüklemeler için de garanti)
+      try {
+        if (file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
+          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        }
+      } catch (shareErr) {
+        // Paylaşım ayarlanamazsa devam et
+      }
+
+      photos.push({
+        id: fid,
+        name: file.getName(),
+        url: file.getUrl(),
+        displayUrl: 'https://drive.google.com/thumbnail?id=' + fid + '&sz=w1600',
+        altUrl: 'https://lh3.googleusercontent.com/d/' + fid + '=w1600',
+        thumbnailUrl: file.getThumbnailUrl(),
+        downloadUrl: file.getDownloadUrl(),
+        createdDate: file.getDateCreated().toISOString(),
+        size: file.getSize()
+      });
+    }
+  }
+
+  photos.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+  return { photos: photos, folderUrl: folder.getUrl() };
+}
+
+// GET isteği - Okuma işlemleri (getPhotos / getConfig) buradan da çalışır.
+// Bu, statik siteden yapılan isteklerin daha güvenilir çalışmasını sağlar
+// ve endpoint'i tarayıcıdan test edilebilir yapar.
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({
-    success: true,
-    message: 'Düğün Fotoğraf API çalışıyor!',
-    coupleNames: COUPLE_NAMES,
-    weddingDate: WEDDING_DATE
-  })).setMimeType(ContentService.MimeType.JSON);
+  try {
+    const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
+
+    if (action === 'getPhotos') {
+      const result = listPhotos();
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        photos: result.photos,
+        folderUrl: result.folderUrl
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'getConfig') {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        coupleNames: COUPLE_NAMES,
+        weddingDate: WEDDING_DATE
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Varsayılan: basit sağlık kontrolü
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      message: 'Düğün Fotoğraf API çalışıyor!',
+      coupleNames: COUPLE_NAMES,
+      weddingDate: WEDDING_DATE
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 // Test fonksiyonu
