@@ -4,9 +4,9 @@
 // Bu kodu Google Apps Script'e yapıştıracaksınız
 
 // AYARLAR - Buradan düzenleyin
-const ADMIN_PASSWORD = "dugun2024"; // Admin şifrenizi buraya yazın
-const COUPLE_NAMES = "Ayşe & Mehmet"; // Çift isimlerini buraya
-const WEDDING_DATE = "15 Haziran 2024"; // Düğün tarihini buraya
+const ADMIN_PASSWORD = "dugun2026"; // Admin şifrenizi buraya yazın
+const COUPLE_NAMES = "Merve & Selim"; // Çift isimlerini buraya
+const WEDDING_DATE = "17 Temmuz 2026"; // Düğün tarihini buraya
 
 // Google Drive klasör ID'si - Script çalıştığında otomatik oluşturulacak
 let DRIVE_FOLDER_ID = null;
@@ -44,14 +44,25 @@ function doPost(e) {
       // Drive'a yükle
       const file = folder.createFile(fileBlob);
       
+      // Fotoğrafın herkese açık (linki olan herkes görebilir) olmasını sağla
+      // Bu olmadan yüklenen fotoğraflar sitede görüntülenemez!
+      try {
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (shareErr) {
+        // Bazı hesaplarda alan kısıtlaması olabilir; yine de devam et
+      }
+      
       // Yükleme bilgilerini kaydet (opsiyonel)
       file.setDescription(`Yükleyen: ${data.uploaderName || 'Misafir'} - ${new Date().toLocaleString('tr-TR')}`);
       
+      const uid = file.getId();
       return ContentService.createTextOutput(JSON.stringify({
         success: true,
-        fileId: file.getId(),
+        fileId: uid,
         fileName: file.getName(),
-        fileUrl: file.getUrl()
+        fileUrl: file.getUrl(),
+        displayUrl: 'https://drive.google.com/thumbnail?id=' + uid + '&sz=w1600',
+        altUrl: 'https://lh3.googleusercontent.com/d/' + uid + '=w1600'
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
@@ -66,10 +77,24 @@ function doPost(e) {
         
         // Sadece resimleri al
         if (mimeType.startsWith('image/')) {
+          const fid = file.getId();
+          
+          // Fotoğrafı herkese açık yap (eski yüklemeler için de garanti)
+          try {
+            if (file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
+              file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+            }
+          } catch (shareErr) {
+            // Paylaşım ayarlanamazsa devam et
+          }
+          
           photos.push({
-            id: file.getId(),
+            id: fid,
             name: file.getName(),
             url: file.getUrl(),
+            // <img> ile görüntülenebilen direkt resim URL'leri
+            displayUrl: 'https://drive.google.com/thumbnail?id=' + fid + '&sz=w1600',
+            altUrl: 'https://lh3.googleusercontent.com/d/' + fid + '=w1600',
             thumbnailUrl: file.getThumbnailUrl(),
             downloadUrl: file.getDownloadUrl(),
             createdDate: file.getDateCreated().toISOString(),

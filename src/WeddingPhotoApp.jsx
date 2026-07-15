@@ -315,9 +315,28 @@ const WeddingPhotoApp = () => {
               <div className="relative bg-black border border-white/10">
                 <div className="relative aspect-[16/10] md:aspect-[21/9]">
                   <img
-                    src={photos[currentPhotoIndex]?.thumbnailUrl || photos[currentPhotoIndex]?.url}
+                    key={photos[currentPhotoIndex]?.id || currentPhotoIndex}
+                    src={
+                      photos[currentPhotoIndex]?.displayUrl ||
+                      photos[currentPhotoIndex]?.thumbnailUrl ||
+                      photos[currentPhotoIndex]?.url
+                    }
                     alt={`Memory ${currentPhotoIndex + 1}`}
                     className="w-full h-full object-cover filter grayscale"
+                    referrerPolicy="no-referrer"
+                    loading="eager"
+                    onError={(e) => {
+                      // Drive görüntüleme URL'i başarısız olursa sırayla yedeklere geç
+                      const photo = photos[currentPhotoIndex] || {};
+                      const fallbacks = [photo.altUrl, photo.thumbnailUrl, photo.url].filter(Boolean);
+                      const tried = e.currentTarget.dataset.fallbackIndex
+                        ? parseInt(e.currentTarget.dataset.fallbackIndex, 10)
+                        : 0;
+                      if (tried < fallbacks.length) {
+                        e.currentTarget.dataset.fallbackIndex = String(tried + 1);
+                        e.currentTarget.src = fallbacks[tried];
+                      }
+                    }}
                   />
                   
                   {/* Photo Overlay */}

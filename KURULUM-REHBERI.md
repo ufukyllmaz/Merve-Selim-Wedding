@@ -22,9 +22,9 @@
 Kod içinde şu satırları düzenleyin:
 
 ```javascript
-const ADMIN_PASSWORD = "dugun2024"; // ŞİFRENİZİ BURAYA YAZIN!
-const COUPLE_NAMES = "Ayşe & Mehmet"; // İSİMLERİNİZİ YAZIN
-const WEDDING_DATE = "15 Haziran 2024"; // TARİHİNİZİ YAZIN
+const ADMIN_PASSWORD = "dugun2026"; // ŞİFRENİZİ BURAYA YAZIN!
+const COUPLE_NAMES = "Merve & Selim"; // İSİMLERİNİZİ YAZIN
+const WEDDING_DATE = "17 Temmuz 2026"; // TARİHİNİZİ YAZIN
 ```
 
 ### 1.4 Projeyi Kaydedin
