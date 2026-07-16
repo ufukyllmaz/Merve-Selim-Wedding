@@ -261,14 +261,27 @@ const WeddingPhotoApp = () => {
               <div className="relative bg-black border border-white/10">
                 <div className="relative aspect-[16/10] md:aspect-[21/9]">
                   {batch.length > 0 ? (
-                    <img
-                      key={batch[currentPhotoIndex]?.name || currentPhotoIndex}
-                      src={batch[currentPhotoIndex]?.url}
-                      alt={`Memory ${currentPhotoIndex + 1}`}
-                      className="w-full h-full object-cover filter grayscale"
-                      referrerPolicy="no-referrer"
-                      loading="eager"
-                    />
+                    <div key={batch[currentPhotoIndex]?.name || currentPhotoIndex}
+                      style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+                      {/* Bulanık arka plan: boşlukları doldurur (dikey fotoğraflarda siyah bant yerine) */}
+                      <img
+                        src={batch[currentPhotoIndex]?.url}
+                        alt=""
+                        aria-hidden="true"
+                        referrerPolicy="no-referrer"
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
+                          objectFit: 'cover', filter: 'grayscale(1) blur(24px)', transform: 'scale(1.1)', opacity: 0.4 }}
+                      />
+                      {/* Asıl fotoğraf: kırpılmadan, tam görünür */}
+                      <img
+                        src={batch[currentPhotoIndex]?.url}
+                        alt={`Memory ${currentPhotoIndex + 1}`}
+                        referrerPolicy="no-referrer"
+                        loading="eager"
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
+                          objectFit: 'contain', filter: 'grayscale(1)' }}
+                      />
+                    </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-white/30 border-t-white"></div>
