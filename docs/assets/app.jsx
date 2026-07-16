@@ -259,7 +259,7 @@ const WeddingPhotoApp = () => {
           <div className="max-w-7xl mx-auto px-4">
             <div className="relative mb-16">
               <div className="relative bg-black border border-white/10">
-                <div className="relative aspect-[16/10] md:aspect-[21/9]">
+                <div className="slide-frame">
                   {batch.length > 0 ? (
                     <div key={batch[currentPhotoIndex]?.name || currentPhotoIndex}
                       style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
