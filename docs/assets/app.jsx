@@ -58,7 +58,7 @@ const WeddingPhotoApp = () => {
   const [coupleNames] = useState(COUPLE_NAMES);
   const [weddingDate] = useState(WEDDING_DATE);
 
-  const COUPLE_PHOTO_URL = `/Merve-Selim-Wedding/couple.jpg`;
+  const COUPLE_PHOTO_URL = `/Merve-Selim-Wedding/couple.jpeg`;
 
   // ---- Slayt ayarları ----
   const BATCH_SIZE = 10;                    // her turda gösterilecek foto sayısı
