@@ -128,47 +128,72 @@ const WeddingPhotoApp = () => {
   // Dosya adını güvenli hale getir
   const safeName = (name) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-  // Fotoğraf yükleme - doğrudan Firebase Storage'a (resumable)
+  // Fotoğraf yükleme - doğrudan Firebase Storage'a, PARALEL (resumable)
+  const UPLOAD_CONCURRENCY = 4; // aynı anda kaç fotoğraf yüklensin
+
   const handleFileUpload = async (event) => {
-    const files = Array.from(event.target.files);
+    const selected = Array.from(event.target.files);
+    if (selected.length === 0) return;
+
+    // Geçerli dosyaları ayıkla (boyut/tip)
+    const files = [];
+    for (const file of selected) {
+      if (file.size > 30 * 1024 * 1024) { alert(`${file.name} çok büyük (max 30MB)`); continue; }
+      if (!file.type.startsWith('image/')) { alert(`${file.name} bir resim dosyası değil`); continue; }
+      files.push(file);
+    }
     if (files.length === 0) return;
 
     setUploading(true);
+    setUploadProgress(0);
+
+    // Toplam bayta göre ilerleme (paralelde en sağlıklısı)
+    const transferred = new Array(files.length).fill(0);
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0) || 1;
+    const updateProgress = () => {
+      const sum = transferred.reduce((a, b) => a + b, 0);
+      setUploadProgress(Math.min(100, (sum / totalBytes) * 100));
+    };
+
+    let nextIndex = 0;
     let successCount = 0;
 
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-
-        if (file.size > 30 * 1024 * 1024) { alert(`${file.name} çok büyük (max 30MB)`); continue; }
-        if (!file.type.startsWith('image/')) { alert(`${file.name} bir resim dosyası değil`); continue; }
-
+    const worker = async () => {
+      while (nextIndex < files.length) {
+        const myIndex = nextIndex++;
+        const file = files[myIndex];
         const uniqueName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName(file.name)}`;
         const ref = storage.ref(`${PHOTO_FOLDER}/${uniqueName}`);
-
-        // Resumable upload: kötü internette dayanıklı
-        await new Promise((resolve, reject) => {
-          const task = ref.put(file, { contentType: file.type });
-          task.on('state_changed',
-            (snapshot) => {
-              const fileFrac = snapshot.totalBytes ? snapshot.bytesTransferred / snapshot.totalBytes : 0;
-              const overall = ((i + fileFrac) / files.length) * 100;
-              setUploadProgress(overall);
-            },
-            (err) => reject(err),
-            () => resolve()
-          );
-        });
-
-        successCount++;
-        setUploadProgress(((i + 1) / files.length) * 100);
+        try {
+          await new Promise((resolve, reject) => {
+            const task = ref.put(file, { contentType: file.type });
+            task.on('state_changed',
+              (snapshot) => { transferred[myIndex] = snapshot.bytesTransferred; updateProgress(); },
+              (err) => reject(err),
+              () => { transferred[myIndex] = file.size; updateProgress(); resolve(); }
+            );
+          });
+          successCount++;
+        } catch (err) {
+          console.error('Yükleme hatası:', file.name, err);
+        }
       }
+    };
+
+    try {
+      const pool = Array.from(
+        { length: Math.min(UPLOAD_CONCURRENCY, files.length) },
+        () => worker()
+      );
+      await Promise.all(pool);
 
       if (successCount > 0) {
         alert(`${successCount} fotoğraf başarıyla yüklendi! Teşekkür ederiz 💕`);
         setShowUploadModal(false);
         setLoading(true);
         await loadPhotos();
+      } else {
+        alert('Fotoğraflar yüklenemedi. Lütfen tekrar deneyin.');
       }
     } catch (error) {
       console.error('Yükleme hatası:', error);
@@ -178,6 +203,7 @@ const WeddingPhotoApp = () => {
       setUploadProgress(0);
     }
   };
+
 
   const hasPhotos = allItems.length > 0;
 
