@@ -4,6 +4,7 @@ import { Upload, Camera, X, Image as ImageIcon } from 'lucide-react';
 const WeddingPhotoApp = () => {
   const [photos, setPhotos] = useState([]);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [slideBatch, setSlideBatch] = useState([]); // o an gösterilen rastgele grup
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -43,17 +44,55 @@ const WeddingPhotoApp = () => {
     loadPhotos();
   }, []);
 
-  // Slideshow - Her 5 saniyede bir fotoğraf değişir
+  // ============================================
+  // SLAYT AYARLARI
+  // Çok sayıda fotoğraf olduğunda hepsini sırayla göstermek yerine
+  // rastgele BATCH_SIZE fotoğraf seçilir, BATCH_DURATION boyunca bunlar
+  // gösterilir (her biri SLIDE_INTERVAL'de bir değişir), sonra yeni bir
+  // rastgele grup seçilir.
+  // ============================================
+  const BATCH_SIZE = 10;                    // her turda gösterilecek fotoğraf sayısı
+  const BATCH_DURATION_MS = 5 * 60 * 1000;  // 5 dakika
+  const SLIDE_INTERVAL_MS = 5000;           // 5 saniye
+
+  // Fisher-Yates ile rastgele bir grup seç
+  const pickRandomBatch = (all) => {
+    if (!all || all.length === 0) return [];
+    if (all.length <= BATCH_SIZE) return all.slice();
+    const arr = all.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.slice(0, BATCH_SIZE);
+  };
+
+  // Fotoğraflar yüklendiğinde / değiştiğinde ilk rastgele grubu seç
   useEffect(() => {
-    if (photos.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentPhotoIndex((prevIndex) => 
-          (prevIndex + 1) % photos.length
-        );
-      }, 5000);
-      return () => clearInterval(interval);
+    setSlideBatch(pickRandomBatch(photos));
+    setCurrentPhotoIndex(0);
+  }, [photos]);
+
+  // Her BATCH_DURATION'da bir yeni rastgele grup seç (10'dan fazla foto varsa)
+  useEffect(() => {
+    if (photos.length > BATCH_SIZE) {
+      const t = setInterval(() => {
+        setSlideBatch(pickRandomBatch(photos));
+        setCurrentPhotoIndex(0);
+      }, BATCH_DURATION_MS);
+      return () => clearInterval(t);
     }
   }, [photos]);
+
+  // Gruptaki fotoğraflar arasında her SLIDE_INTERVAL'de bir geç
+  useEffect(() => {
+    if (slideBatch.length > 1) {
+      const t = setInterval(() => {
+        setCurrentPhotoIndex((prev) => (prev + 1) % slideBatch.length);
+      }, SLIDE_INTERVAL_MS);
+      return () => clearInterval(t);
+    }
+  }, [slideBatch]);
 
   // Konfigürasyon yükle
   const loadConfig = async () => {
@@ -227,6 +266,9 @@ const WeddingPhotoApp = () => {
     }
   };
 
+  // Slaytta gösterilecek liste: rastgele grup (henüz seçilmediyse tüm fotoğraflar)
+  const view = slideBatch.length > 0 ? slideBatch : photos;
+
   return (
     <div className="min-h-screen bg-black">
       {/* Elegant Header with Couple Photo Background */}
@@ -314,11 +356,11 @@ const WeddingPhotoApp = () => {
               <div className="relative bg-black border border-white/10">
                 <div className="relative aspect-[16/10] md:aspect-[21/9]">
                   <img
-                    key={photos[currentPhotoIndex]?.id || currentPhotoIndex}
+                    key={view[currentPhotoIndex]?.id || currentPhotoIndex}
                     src={
-                      photos[currentPhotoIndex]?.displayUrl ||
-                      photos[currentPhotoIndex]?.thumbnailUrl ||
-                      photos[currentPhotoIndex]?.url
+                      view[currentPhotoIndex]?.displayUrl ||
+                      view[currentPhotoIndex]?.thumbnailUrl ||
+                      view[currentPhotoIndex]?.url
                     }
                     alt={`Memory ${currentPhotoIndex + 1}`}
                     className="w-full h-full object-cover filter grayscale"
@@ -326,7 +368,7 @@ const WeddingPhotoApp = () => {
                     loading="eager"
                     onError={(e) => {
                       // Drive görüntüleme URL'i başarısız olursa sırayla yedeklere geç
-                      const photo = photos[currentPhotoIndex] || {};
+                      const photo = view[currentPhotoIndex] || {};
                       const fallbacks = [photo.altUrl, photo.thumbnailUrl, photo.url].filter(Boolean);
                       const tried = e.currentTarget.dataset.fallbackIndex
                         ? parseInt(e.currentTarget.dataset.fallbackIndex, 10)
@@ -346,16 +388,16 @@ const WeddingPhotoApp = () => {
                     <div className="text-white">
                       <p className="text-sm tracking-widest uppercase mb-1 text-white/60">Photo</p>
                       <p className="text-2xl md:text-3xl font-serif">
-                        {String(currentPhotoIndex + 1).padStart(2, '0')} / {String(photos.length).padStart(2, '0')}
+                        {String(currentPhotoIndex + 1).padStart(2, '0')} / {String(view.length).padStart(2, '0')}
                       </p>
                     </div>
                   </div>
 
                   {/* Navigation Arrows */}
-                  {photos.length > 1 && (
+                  {view.length > 1 && (
                     <>
                       <button
-                        onClick={() => setCurrentPhotoIndex((currentPhotoIndex - 1 + photos.length) % photos.length)}
+                        onClick={() => setCurrentPhotoIndex((currentPhotoIndex - 1 + view.length) % view.length)}
                         className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 text-white hover:text-white/60 transition-all group"
                         aria-label="Previous photo"
                       >
@@ -364,7 +406,7 @@ const WeddingPhotoApp = () => {
                         </div>
                       </button>
                       <button
-                        onClick={() => setCurrentPhotoIndex((currentPhotoIndex + 1) % photos.length)}
+                        onClick={() => setCurrentPhotoIndex((currentPhotoIndex + 1) % view.length)}
                         className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 text-white hover:text-white/60 transition-all group"
                         aria-label="Next photo"
                       >
@@ -382,7 +424,7 @@ const WeddingPhotoApp = () => {
                 <div className="h-px bg-white/10 relative">
                   <div 
                     className="absolute h-full bg-white transition-all duration-500"
-                    style={{ width: `${((currentPhotoIndex + 1) / photos.length) * 100}%` }}
+                    style={{ width: `${((currentPhotoIndex + 1) / view.length) * 100}%` }}
                   ></div>
                 </div>
               </div>
