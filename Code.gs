@@ -95,9 +95,7 @@ function doPost(e) {
             // <img> ile görüntülenebilen direkt resim URL'leri
             displayUrl: 'https://drive.google.com/thumbnail?id=' + fid + '&sz=w1600',
             altUrl: 'https://lh3.googleusercontent.com/d/' + fid + '=w1600',
-            thumbnailUrl: file.getThumbnailUrl(),
-            downloadUrl: file.getDownloadUrl(),
-            createdDate: file.getDateCreated().toISOString(),
+                    createdDate: file.getDateCreated().toISOString(),
             size: file.getSize()
           });
         }
@@ -171,8 +169,6 @@ function listPhotos() {
         url: file.getUrl(),
         displayUrl: 'https://drive.google.com/thumbnail?id=' + fid + '&sz=w1600',
         altUrl: 'https://lh3.googleusercontent.com/d/' + fid + '=w1600',
-        thumbnailUrl: file.getThumbnailUrl(),
-        downloadUrl: file.getDownloadUrl(),
         createdDate: file.getDateCreated().toISOString(),
         size: file.getSize()
       });
