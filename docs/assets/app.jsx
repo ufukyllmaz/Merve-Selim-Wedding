@@ -1,6 +1,25 @@
 const { useState, useEffect } = React;
 
-// ---- Basit SVG ikonları (lucide yerine, harici bağımlılık olmadan) ----
+// ============================================
+// FIREBASE AYARLARI
+// ============================================
+const firebaseConfig = {
+  apiKey: "AIzaSyAKda4i68S5VIDnrqFFFW_EWNDLCtpJJ6Y",
+  authDomain: "project-76c2a12a-3789-4c81-a94.firebaseapp.com",
+  projectId: "project-76c2a12a-3789-4c81-a94",
+  storageBucket: "project-76c2a12a-3789-4c81-a94.firebasestorage.app",
+  messagingSenderId: "966819585926",
+  appId: "1:966819585926:web:fcd3ab339907693b2f1607"
+};
+firebase.initializeApp(firebaseConfig);
+const storage = firebase.storage();
+const PHOTO_FOLDER = 'photos';
+
+// Çift bilgileri
+const COUPLE_NAMES = 'Merve & Selim';
+const WEDDING_DATE = '17 Temmuz 2026';
+
+// ---- Basit SVG ikonları ----
 const Camera = ({ size = 24, className = '' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -29,30 +48,28 @@ const ImageIcon = ({ size = 24, strokeWidth = 2, className = '' }) => (
 );
 
 const WeddingPhotoApp = () => {
-  const [photos, setPhotos] = useState([]);
+  const [allItems, setAllItems] = useState([]);   // Storage referansları (tüm fotoğraflar)
+  const [batch, setBatch] = useState([]);         // o an gösterilen grup: [{name, url}]
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [slideBatch, setSlideBatch] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [driveFolderUrl, setDriveFolderUrl] = useState('');
-  const [coupleNames, setCoupleNames] = useState('');
-  const [weddingDate, setWeddingDate] = useState('');
+  const [coupleNames] = useState(COUPLE_NAMES);
+  const [weddingDate] = useState(WEDDING_DATE);
 
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwVruB1tsas9X-8jE0c8-U_31PwLladcowCL0h7yQzY--UKlasz2tdgRgKl8T5bMZ6Drg/exec';
   const COUPLE_PHOTO_URL = `/Merve-Selim-Wedding/couple.jpg`;
-  const isDemoMode = SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
 
   // ---- Slayt ayarları ----
   const BATCH_SIZE = 10;                    // her turda gösterilecek foto sayısı
   const BATCH_DURATION_MS = 5 * 60 * 1000;  // 5 dakika
   const SLIDE_INTERVAL_MS = 5000;           // 5 saniye
 
-  const pickRandomBatch = (all) => {
-    if (!all || all.length === 0) return [];
-    if (all.length <= BATCH_SIZE) return all.slice();
-    const arr = all.slice();
+  // Rastgele referans seç (Fisher-Yates)
+  const pickRandomRefs = (items) => {
+    if (!items || items.length === 0) return [];
+    if (items.length <= BATCH_SIZE) return items.slice();
+    const arr = items.slice();
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -60,59 +77,27 @@ const WeddingPhotoApp = () => {
     return arr.slice(0, BATCH_SIZE);
   };
 
-  useEffect(() => { loadConfig(); loadPhotos(); }, []);
-
-  // Fotoğraflar geldiğinde ilk rastgele grubu seç
-  useEffect(() => {
-    setSlideBatch(pickRandomBatch(photos));
-    setCurrentPhotoIndex(0);
-  }, [photos]);
-
-  // Her 5 dakikada yeni rastgele grup (10'dan fazla foto varsa)
-  useEffect(() => {
-    if (photos.length > BATCH_SIZE) {
-      const t = setInterval(() => {
-        setSlideBatch(pickRandomBatch(photos));
-        setCurrentPhotoIndex(0);
-      }, BATCH_DURATION_MS);
-      return () => clearInterval(t);
-    }
-  }, [photos]);
-
-  // Gruptaki fotoğraflar arasında her 5 saniyede geç
-  useEffect(() => {
-    if (slideBatch.length > 1) {
-      const t = setInterval(() => {
-        setCurrentPhotoIndex((prev) => (prev + 1) % slideBatch.length);
-      }, SLIDE_INTERVAL_MS);
-      return () => clearInterval(t);
-    }
-  }, [slideBatch]);
-
-  const loadConfig = async () => {
-    if (isDemoMode) { setCoupleNames('Merve & Selim'); setWeddingDate('17 Temmuz 2026'); return; }
+  // Seçilen referansların indirme URL'lerini çöz ve grubu ayarla
+  const loadBatch = async (items) => {
+    const chosen = pickRandomRefs(items);
     try {
-      const response = await fetch(`${SCRIPT_URL}?action=getConfig`);
-      const data = await response.json();
-      if (data.success) { setCoupleNames(data.coupleNames); setWeddingDate(data.weddingDate); }
-    } catch (error) {
-      console.error('Config yükleme hatası:', error);
-      setCoupleNames('Merve & Selim'); setWeddingDate('17 Temmuz 2026');
+      const resolved = await Promise.all(
+        chosen.map(async (ref) => ({ name: ref.name, url: await ref.getDownloadURL() }))
+      );
+      setBatch(resolved);
+      setCurrentPhotoIndex(0);
+    } catch (e) {
+      console.error('Grup URL çözme hatası:', e);
     }
   };
 
+  // Tüm fotoğraf listesini Firebase Storage'dan çek
   const loadPhotos = async () => {
-    setLoading(true);
     try {
-      const response = await fetch(`${SCRIPT_URL}?action=getPhotos`);
-      const data = await response.json();
-      if (data.success) {
-        setPhotos(Array.isArray(data.photos) ? data.photos : []);
-        setDriveFolderUrl(data.folderUrl || '');
-        console.log(`Galeri: ${data.photos ? data.photos.length : 0} fotoğraf yüklendi`);
-      } else {
-        console.error('Fotoğraf listeleme hatası (backend):', data.error);
-      }
+      const res = await storage.ref(PHOTO_FOLDER).listAll();
+      setAllItems(res.items);
+      await loadBatch(res.items);
+      console.log(`Galeri: ${res.items.length} fotoğraf bulundu`);
     } catch (error) {
       console.error('Fotoğraflar yüklenirken hata:', error);
     } finally {
@@ -120,51 +105,81 @@ const WeddingPhotoApp = () => {
     }
   };
 
-  const fileToBase64 = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  useEffect(() => { loadPhotos(); }, []);
 
+  // Her 5 dakikada yeni rastgele grup
+  useEffect(() => {
+    if (allItems.length > BATCH_SIZE) {
+      const t = setInterval(() => { loadBatch(allItems); }, BATCH_DURATION_MS);
+      return () => clearInterval(t);
+    }
+  }, [allItems]);
+
+  // Gruptaki fotoğraflar arasında her 5 saniyede geç
+  useEffect(() => {
+    if (batch.length > 1) {
+      const t = setInterval(() => {
+        setCurrentPhotoIndex((prev) => (prev + 1) % batch.length);
+      }, SLIDE_INTERVAL_MS);
+      return () => clearInterval(t);
+    }
+  }, [batch]);
+
+  // Dosya adını güvenli hale getir
+  const safeName = (name) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+  // Fotoğraf yükleme - doğrudan Firebase Storage'a (resumable)
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
     if (files.length === 0) return;
+
     setUploading(true);
     let successCount = 0;
+
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (file.size > 10 * 1024 * 1024) { alert(`${file.name} çok büyük (max 10MB)`); continue; }
+
+        if (file.size > 30 * 1024 * 1024) { alert(`${file.name} çok büyük (max 30MB)`); continue; }
         if (!file.type.startsWith('image/')) { alert(`${file.name} bir resim dosyası değil`); continue; }
-        setUploadProgress(((i) / files.length) * 100);
-        const base64Data = await fileToBase64(file);
-        const response = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'upload', fileName: file.name, fileData: base64Data,
-            mimeType: file.type, uploaderName: 'Misafir'
-          })
+
+        const uniqueName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName(file.name)}`;
+        const ref = storage.ref(`${PHOTO_FOLDER}/${uniqueName}`);
+
+        // Resumable upload: kötü internette dayanıklı
+        await new Promise((resolve, reject) => {
+          const task = ref.put(file, { contentType: file.type });
+          task.on('state_changed',
+            (snapshot) => {
+              const fileFrac = snapshot.totalBytes ? snapshot.bytesTransferred / snapshot.totalBytes : 0;
+              const overall = ((i + fileFrac) / files.length) * 100;
+              setUploadProgress(overall);
+            },
+            (err) => reject(err),
+            () => resolve()
+          );
         });
-        const result = await response.json();
-        if (result.success) successCount++; else console.error('Yükleme hatası:', result.error);
+
+        successCount++;
         setUploadProgress(((i + 1) / files.length) * 100);
       }
+
       if (successCount > 0) {
         alert(`${successCount} fotoğraf başarıyla yüklendi! Teşekkür ederiz 💕`);
         setShowUploadModal(false);
+        setLoading(true);
         await loadPhotos();
       }
     } catch (error) {
       console.error('Yükleme hatası:', error);
       alert('Fotoğraf yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
-      setUploading(false); setUploadProgress(0);
+      setUploading(false);
+      setUploadProgress(0);
     }
   };
 
-  // Slaytta gösterilecek liste: rastgele grup (henüz seçilmediyse tüm fotoğraflar)
-  const view = slideBatch.length > 0 ? slideBatch : photos;
+  const hasPhotos = allItems.length > 0;
 
   return (
     <div className="min-h-screen bg-black">
@@ -176,9 +191,7 @@ const WeddingPhotoApp = () => {
         <div className="relative z-10 text-center px-4">
           <div className="mb-8">
             <div className="w-px h-16 bg-white/30 mx-auto mb-8"></div>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif text-white mb-6 tracking-wider">
-              {coupleNames || 'Loading...'}
-            </h1>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif text-white mb-6 tracking-wider">{coupleNames}</h1>
             <div className="flex items-center justify-center space-x-4 mb-8">
               <div className="w-12 h-px bg-white/50"></div>
               <p className="text-xl md:text-2xl text-white/90 font-light tracking-widest uppercase">{weddingDate}</p>
@@ -205,7 +218,9 @@ const WeddingPhotoApp = () => {
         <div className="text-center mb-16 px-4">
           <div className="w-px h-12 bg-white/30 mx-auto mb-6"></div>
           <h2 className="text-3xl md:text-5xl font-serif text-white mb-4 tracking-wider">Our Memories</h2>
-          <p className="text-white/60 text-sm tracking-widest uppercase">Shared moments from our special day</p>
+          <p className="text-white/60 text-sm tracking-widest uppercase">
+            {hasPhotos ? `${allItems.length} moment shared` : 'Shared moments from our special day'}
+          </p>
           <div className="w-px h-12 bg-white/30 mx-auto mt-6"></div>
         </div>
 
@@ -214,51 +229,43 @@ const WeddingPhotoApp = () => {
             <div className="inline-block animate-spin rounded-full h-16 w-16 border-2 border-white/30 border-t-white"></div>
             <p className="mt-6 text-white/60 text-sm tracking-widest uppercase">Loading Gallery...</p>
           </div>
-        ) : photos.length > 0 ? (
+        ) : hasPhotos ? (
           <div className="max-w-7xl mx-auto px-4">
             <div className="relative mb-16">
               <div className="relative bg-black border border-white/10">
                 <div className="relative aspect-[16/10] md:aspect-[21/9]">
-                  <img
-                    key={view[currentPhotoIndex]?.id || currentPhotoIndex}
-                    src={
-                      view[currentPhotoIndex]?.displayUrl ||
-                      view[currentPhotoIndex]?.altUrl ||
-                      view[currentPhotoIndex]?.url
-                    }
-                    alt={`Memory ${currentPhotoIndex + 1}`}
-                    className="w-full h-full object-cover filter grayscale"
-                    referrerPolicy="no-referrer"
-                    loading="eager"
-                    onError={(e) => {
-                      const photo = view[currentPhotoIndex] || {};
-                      const fallbacks = [photo.altUrl, photo.url].filter(Boolean);
-                      const tried = e.currentTarget.dataset.fallbackIndex
-                        ? parseInt(e.currentTarget.dataset.fallbackIndex, 10) : 0;
-                      if (tried < fallbacks.length) {
-                        e.currentTarget.dataset.fallbackIndex = String(tried + 1);
-                        e.currentTarget.src = fallbacks[tried];
-                      }
-                    }}
-                  />
+                  {batch.length > 0 ? (
+                    <img
+                      key={batch[currentPhotoIndex]?.name || currentPhotoIndex}
+                      src={batch[currentPhotoIndex]?.url}
+                      alt={`Memory ${currentPhotoIndex + 1}`}
+                      className="w-full h-full object-cover filter grayscale"
+                      referrerPolicy="no-referrer"
+                      loading="eager"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-white/30 border-t-white"></div>
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
                   <div className="absolute bottom-8 left-8 right-8 flex justify-between items-center">
                     <div className="text-white">
                       <p className="text-sm tracking-widest uppercase mb-1 text-white/60">Photo</p>
                       <p className="text-2xl md:text-3xl font-serif">
-                        {String(currentPhotoIndex + 1).padStart(2, '0')} / {String(view.length).padStart(2, '0')}
+                        {String(currentPhotoIndex + 1).padStart(2, '0')} / {String(batch.length).padStart(2, '0')}
                       </p>
                     </div>
                   </div>
-                  {view.length > 1 && (
+                  {batch.length > 1 && (
                     <>
-                      <button onClick={() => setCurrentPhotoIndex((currentPhotoIndex - 1 + view.length) % view.length)}
+                      <button onClick={() => setCurrentPhotoIndex((currentPhotoIndex - 1 + batch.length) % batch.length)}
                         className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 text-white hover:text-white/60 transition-all group" aria-label="Previous photo">
                         <div className="w-12 h-12 md:w-16 md:h-16 border border-white/30 group-hover:border-white flex items-center justify-center transition-all">
                           <span className="text-2xl">←</span>
                         </div>
                       </button>
-                      <button onClick={() => setCurrentPhotoIndex((currentPhotoIndex + 1) % view.length)}
+                      <button onClick={() => setCurrentPhotoIndex((currentPhotoIndex + 1) % batch.length)}
                         className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 text-white hover:text-white/60 transition-all group" aria-label="Next photo">
                         <div className="w-12 h-12 md:w-16 md:h-16 border border-white/30 group-hover:border-white flex items-center justify-center transition-all">
                           <span className="text-2xl">→</span>
@@ -271,7 +278,7 @@ const WeddingPhotoApp = () => {
               <div className="mt-8 max-w-2xl mx-auto">
                 <div className="h-px bg-white/10 relative">
                   <div className="absolute h-full bg-white transition-all duration-500"
-                    style={{ width: `${((currentPhotoIndex + 1) / view.length) * 100}%` }}></div>
+                    style={{ width: `${batch.length ? ((currentPhotoIndex + 1) / batch.length) * 100 : 0}%` }}></div>
                 </div>
               </div>
             </div>
@@ -307,7 +314,7 @@ const WeddingPhotoApp = () => {
               <div className={`border-2 border-dashed border-white/20 p-12 text-center cursor-pointer hover:border-white/40 transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <Upload className="mx-auto mb-4 text-white/60" size={48} strokeWidth={1} />
                 <p className="text-white font-light tracking-wider mb-2">{uploading ? 'Uploading...' : 'Select Photos'}</p>
-                <p className="text-xs text-white/40 tracking-wider uppercase">Multiple files supported • Max 10MB each</p>
+                <p className="text-xs text-white/40 tracking-wider uppercase">Multiple files supported • Max 30MB each</p>
               </div>
             </label>
             {uploading && (
